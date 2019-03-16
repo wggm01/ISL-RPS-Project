@@ -8,8 +8,8 @@ Project Members:
 
 > Final Product
 
-![Final](images/finalp.jpg  | width=48) 
-![Final1](images/finalp1.jpg  | width=48) 
+![Final](images/finalp.jpg) 
+![Final1](images/finalp1.jpg) 
 
 Logistical info:
 
