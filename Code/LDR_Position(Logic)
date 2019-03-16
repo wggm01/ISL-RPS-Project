@@ -1,0 +1,163 @@
+ #include <math.h>
+ #define retardo 10
+ 
+const short axis_number = 2;
+const int baud_rate = 9600;
+const int axis_inputs[axis_number][3] = {{A3,A4,A5},{A0,A1,A2}};
+const short no_object_code = 1;
+const short sending_data_code = 2;
+const short calibrating_code = 3;
+ 
+char V1 = 0;
+char V2 = 0;
+char V3 = 0;
+bool band0 = true;
+
+int ADJ_B[axis_number], ADJ_C[axis_number],adap_err[axis_number];   
+int axis_values[axis_number];
+
+void setup() {
+  // put your setup code here, to run once:
+int i = 0;
+Serial.begin(baud_rate);
+init_pins();
+while (i<axis_number){
+  calibrate(i);
+  i = i + 1;
+}
+}
+
+void init_pins(void){
+  int i = 0;
+  while(i<axis_number){
+    set_input(i);
+    pinMode(V1, INPUT);
+    pinMode(V2, INPUT);
+    pinMode(V3, INPUT);
+    i = i + 1;
+  }
+}
+
+void set_input(int axis){
+  V1 = axis_inputs[axis][0];
+  V2 = axis_inputs[axis][1];
+  V3 = axis_inputs[axis][2]; 
+  pinMode(V1,INPUT);
+  pinMode(V2, INPUT);
+  pinMode(V3, INPUT);
+  delay(100);
+}
+
+float get_axis(int axis){
+  
+  float VA_N,VB_N,VC_N,axis_value,total,m1,m2,m_av;
+  int VA,VB,VC;
+  
+  set_input(axis);
+  
+  VA = VB = VC = 0;
+  delay(retardo);
+  VA = analogRead(V1);
+  delay(retardo);
+  VB = analogRead(V2) + ADJ_B[axis];
+  delay(retardo);
+  VC = analogRead(V3) + ADJ_C[axis];
+  delay(retardo);
+  total = (VA+VB+VC);
+  VB_N = 100*(VB/total);
+  VA_N = 100*(VA/total);
+  VC_N = 100*(VC/total);
+  m1 = (VB_N - VA_N)*3;
+  m2 = (VC_N - VB_N)*3;
+  if ((abs(m1 -m2)) < 2){
+     return 9999; 
+  } else if ((abs(m1 - m2)) > 2) {
+     m_av = (m1/2)+(m2/2);
+     m_av = (m_av*(50+adap_err[axis]))/20;
+     axis_value = 50 + m_av;
+     axis_value = bound(axis_value);    
+     return axis_value;
+  }
+  return 0;
+}
+
+
+float bound(float num){
+  float x = num;
+  if (x>100){
+    x = 100;
+  }
+  if (x<0){
+    x = 0;
+  }
+  return x;
+}
+
+
+void calibrate(int axis){
+  float VA,VB,VC;
+  char i,j; 
+  i = j = 0;
+
+  set_input(axis);
+  
+  ADJ_B[axis] = ADJ_C[axis] = 0; 
+  VA = VB = VC = 0;
+  Serial.print(calibrating_code);
+  Serial.println(",50,50");
+  while(i == 0){
+    VA = analogRead(V1);
+    delay(retardo);
+    VB = analogRead(V2) + ADJ_B[axis];
+    delay(retardo);
+    VC = analogRead(V3) + ADJ_C[axis];
+    delay(retardo);
+    if (VB < VA){
+      ADJ_B[axis] = ADJ_B[axis] + 1;
+    }else if (VB>VA){
+      ADJ_B[axis] = ADJ_B[axis] - 1;
+    }
+    if (VC < VB){
+      ADJ_C[axis] = ADJ_C[axis] + 1;
+    }else if(VC>VB){
+      ADJ_C[axis] = ADJ_C[axis] - 1;
+    }
+    if ((VA == VB)&(VB == VC)){
+      i = 1;
+    }
+  } 
+}
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  int axis = 0;
+  int i = 1;
+  while(axis<axis_number){
+    axis_values[axis] = get_axis(axis);
+    if ((axis_values[axis] > 100) && band0){
+      axis = axis_number;
+      Serial.print(no_object_code);
+      Serial.println(",50,50");
+      band0 = false;
+    }else if (axis_values[axis] < 100){
+      adap_err[axis + i] = axis_values[axis];
+      adap_err[axis + i] = 50 - abs(adap_err[axis + i] - 50);
+      i = -1*i;
+      axis = axis + 1;
+      band0 = true; 
+    }
+    delay(10);
+  }
+  axis = 0;
+  if (band0){
+    Serial.print(sending_data_code);
+    Serial.print(",");
+    while(axis<(axis_number - 1)){
+      Serial.print(axis_values[axis]);
+      Serial.print(",");
+      axis = axis + 1;
+    }
+    Serial.println(axis_values[axis]);
+  }
+}
