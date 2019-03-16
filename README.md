@@ -8,8 +8,8 @@ Project Members:
 
 > Final Product
 
-![Final](images/finalp.jpg) =250x250
-![Final1](images/finalp1.jpg) =250x250
+![Final](images/finalp.jpg =250x250) 
+![Final1](images/finalp1.jpg =250x250) 
 
 Logistical info:
 
